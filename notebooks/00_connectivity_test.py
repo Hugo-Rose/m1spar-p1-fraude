@@ -7,6 +7,7 @@ import os
 # Fix Java 17+ : doit etre fait AVANT l'import de pyspark
 # Subject.getSubject() a ete retire en Java 17, utilise par Hadoop
 os.environ['JAVA_TOOL_OPTIONS'] = (
+    "-Djava.security.manager=allow "
     "--add-opens=java.base/javax.security.auth=ALL-UNNAMED "
     "--add-opens=java.base/sun.security.action=ALL-UNNAMED "
     "--add-opens=java.base/java.lang=ALL-UNNAMED "
