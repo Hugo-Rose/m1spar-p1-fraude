@@ -2,27 +2,26 @@
 Test de connectivite - M1SPAR P1 Fraude
 Executer avant de commencer le TP EDA
 """
-from pyspark.sql import SparkSession
-from pyspark.sql import functions as F
-import time, os
-from dotenv import load_dotenv
+import os
 
-load_dotenv()
-
-# Chemin absolu vers le dataset genere
-DATASET_PATH = os.getenv(
-    "DATASET_PATH",
-    r"D:\m1spar-p1-fraude\data\fraud_dataset"
-)
-
-# Fix Java 17+ : Hadoop utilise Subject.getSubject() retire en Java 17
-JAVA17_OPTS = (
+# Fix Java 17+ : doit etre fait AVANT l'import de pyspark
+# Subject.getSubject() a ete retire en Java 17, utilise par Hadoop
+os.environ['JAVA_TOOL_OPTIONS'] = (
     "--add-opens=java.base/javax.security.auth=ALL-UNNAMED "
     "--add-opens=java.base/sun.security.action=ALL-UNNAMED "
     "--add-opens=java.base/java.lang=ALL-UNNAMED "
     "--add-opens=java.base/java.util=ALL-UNNAMED "
     "--add-opens=java.base/sun.nio.ch=ALL-UNNAMED"
 )
+
+from pyspark.sql import SparkSession
+from pyspark.sql import functions as F
+import time
+from dotenv import load_dotenv
+
+load_dotenv()
+
+DATASET_PATH = os.getenv("DATASET_PATH", "D:/m1spar-p1-fraude/data/fraud_dataset")
 
 print("=" * 55)
 print("  M1SPAR P1 - Test de connectivite")
@@ -32,8 +31,6 @@ spark = SparkSession.builder \
     .appName("M1SPAR-P1-ConnectTest") \
     .config("spark.sql.adaptive.enabled", "true") \
     .config("spark.driver.memory", "4g") \
-    .config("spark.driver.extraJavaOptions", JAVA17_OPTS) \
-    .config("spark.executor.extraJavaOptions", JAVA17_OPTS) \
     .getOrCreate()
 
 spark.sparkContext.setLogLevel("WARN")
