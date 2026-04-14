@@ -1,26 +1,15 @@
 """
 Test de connectivite - M1SPAR P1 Fraude
-Executer avant de commencer le TP EDA
+Executer avec le venv m1spar : .venv\Scripts\python.exe
 """
 import os
+from dotenv import load_dotenv
 
-# Fix Java 17+ : doit etre fait AVANT l'import de pyspark
-# Subject.getSubject() a ete retire en Java 17, utilise par Hadoop
-os.environ['JAVA_TOOL_OPTIONS'] = (
-    "-Djava.security.manager=allow "
-    "--add-opens=java.base/javax.security.auth=ALL-UNNAMED "
-    "--add-opens=java.base/sun.security.action=ALL-UNNAMED "
-    "--add-opens=java.base/java.lang=ALL-UNNAMED "
-    "--add-opens=java.base/java.util=ALL-UNNAMED "
-    "--add-opens=java.base/sun.nio.ch=ALL-UNNAMED"
-)
+load_dotenv()
 
 from pyspark.sql import SparkSession
 from pyspark.sql import functions as F
 import time
-from dotenv import load_dotenv
-
-load_dotenv()
 
 DATASET_PATH = os.getenv("DATASET_PATH", "D:/m1spar-p1-fraude/data/fraud_dataset")
 
