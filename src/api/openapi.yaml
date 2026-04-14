@@ -1,0 +1,265 @@
+openapi: "3.0.3"
+info:
+  title: M1SPAR P1 — API Détection de Fraude
+  description: |
+    API temps réel de détection de fraude financière.
+    Latence cible P95 < 100ms · Throughput 100K tx/s
+  version: "1.0.0"
+  contact:
+    name: M1SPAR Équipe P1
+    url: https://github.com/Hugo-Rose/m1spar-p1-fraude
+
+servers:
+  - url: http://localhost:8000
+    description: Développement local
+
+paths:
+  /predict:
+    post:
+      summary: Prédiction fraude temps réel
+      description: |
+        Prédit si une transaction est frauduleuse.
+        Latence cible : < 100ms (P95)
+        Cache Redis : résultat mis en cache 5 min par transaction_id
+      operationId: predict_transaction
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TransactionRequest'
+            example:
+              transaction_id: "TXN-2024-001-FR"
+              amount: 42.50
+              merchant_category: "electronics"
+              country: "FR"
+              velocity_1h: 3
+              velocity_10min: 1
+              night_tx_ratio: 0.15
+              V1: 0.021
+              V14: -0.034
+              V17: 0.007
+      responses:
+        '200':
+          description: Prédiction réussie
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PredictionResponse'
+        '422':
+          description: Données de transaction invalides
+        '503':
+          description: Modèle non disponible (MLflow)
+
+  /predict/batch:
+    post:
+      summary: Prédiction batch (max 1000 transactions)
+      operationId: predict_batch
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                transactions:
+                  type: array
+                  items:
+                    $ref: '#/components/schemas/TransactionRequest'
+                  maxItems: 1000
+      responses:
+        '200':
+          description: Prédictions batch
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  results:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/PredictionResponse'
+                  total: { type: integer }
+                  latency_ms: { type: number }
+
+  /health:
+    get:
+      summary: Health check du service
+      operationId: health_check
+      responses:
+        '200':
+          description: Service opérationnel
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+
+  /metrics:
+    get:
+      summary: Métriques Prometheus
+      operationId: prometheus_metrics
+      responses:
+        '200':
+          description: Métriques au format Prometheus
+          content:
+            text/plain:
+              schema:
+                type: string
+
+  /feedback:
+    post:
+      summary: Retour opérateur (vrai label)
+      description: Permet aux opérateurs de corriger les prédictions pour le réentraînement continu
+      operationId: submit_feedback
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FeedbackRequest'
+      responses:
+        '200':
+          description: Feedback enregistré
+
+components:
+  schemas:
+    TransactionRequest:
+      type: object
+      required:
+        - transaction_id
+        - amount
+        - country
+        - velocity_1h
+      properties:
+        transaction_id:
+          type: string
+          description: Identifiant unique de la transaction
+          example: "TXN-2024-001-FR"
+        amount:
+          type: number
+          format: float
+          description: Montant en euros
+          minimum: 0.01
+          example: 42.50
+        merchant_category:
+          type: string
+          description: Catégorie du marchand (MCC)
+          example: "electronics"
+        country:
+          type: string
+          description: Code pays ISO 3166-1 alpha-2
+          example: "FR"
+        velocity_1h:
+          type: integer
+          description: Nombre de transactions de l'utilisateur dans la dernière heure
+          minimum: 0
+          example: 3
+        velocity_10min:
+          type: integer
+          description: Nombre de transactions dans les 10 dernières minutes
+          minimum: 0
+          example: 1
+        night_tx_ratio:
+          type: number
+          format: float
+          description: Ratio de transactions nocturnes (historique 30j)
+          minimum: 0.0
+          maximum: 1.0
+          example: 0.15
+        zscore_amount:
+          type: number
+          format: float
+          description: Z-score du montant vs historique client
+          example: 1.23
+        V1:
+          type: number
+          format: float
+          description: Feature PCA anonymisée V1
+        V14:
+          type: number
+          format: float
+          description: Feature PCA anonymisée V14 (très discriminante)
+        V17:
+          type: number
+          format: float
+          description: Feature PCA anonymisée V17 (très discriminante)
+
+    PredictionResponse:
+      type: object
+      properties:
+        transaction_id:
+          type: string
+          example: "TXN-2024-001-FR"
+        is_fraud:
+          type: boolean
+          description: Décision finale (true = fraude détectée)
+          example: false
+        fraud_probability:
+          type: number
+          format: float
+          description: Probabilité de fraude [0.0 – 1.0]
+          minimum: 0.0
+          maximum: 1.0
+          example: 0.034
+        decision_threshold:
+          type: number
+          format: float
+          description: Seuil de décision utilisé
+          example: 0.42
+        model_version:
+          type: string
+          description: Version du modèle XGBoost utilisé
+          example: "v1.2.0"
+        latency_ms:
+          type: number
+          format: float
+          description: Latence de la prédiction en millisecondes
+          example: 38.5
+        cached:
+          type: boolean
+          description: true si résultat servi depuis le cache Redis
+          example: false
+
+    HealthResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: ["ok", "degraded", "down"]
+          example: "ok"
+        model_version:
+          type: string
+          example: "v1.2.0"
+        components:
+          type: object
+          properties:
+            mlflow:
+              type: string
+              example: "ok"
+            redis:
+              type: string
+              example: "ok"
+            kafka:
+              type: string
+              example: "ok"
+        uptime_seconds:
+          type: number
+          example: 3600
+
+    FeedbackRequest:
+      type: object
+      required:
+        - transaction_id
+        - true_label
+      properties:
+        transaction_id:
+          type: string
+          example: "TXN-2024-001-FR"
+        true_label:
+          type: boolean
+          description: Vrai label de la transaction (opérateur)
+          example: false
+        operator_id:
+          type: string
+          description: Identifiant de l'opérateur (audit)
+          example: "OPS-001"
