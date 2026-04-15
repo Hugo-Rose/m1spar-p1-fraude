@@ -21,6 +21,11 @@ if os.path.isdir(_winutils):
 SPARK_TMP = os.path.join(os.path.expanduser("~"), "spark_tmp")
 os.makedirs(SPARK_TMP, exist_ok=True)
 
+# Ajouter la racine du projet au path pour les imports src.*
+_root_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+if _root_path not in sys.path:
+    sys.path.insert(0, _root_path)
+
 from pyspark.sql import SparkSession
 from src.etl.bronze_ingestion import ingest_bronze
 from src.etl.silver_cleaning import clean_silver, upsert_silver
