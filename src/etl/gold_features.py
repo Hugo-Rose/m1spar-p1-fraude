@@ -41,8 +41,10 @@ def compute_fraud_features(df: DataFrame) -> DataFrame:
         .withColumn("avg_amount_7d_calc",
                     F.mean("amount").over(w_7d)) \
         .withColumn("zscore_amount_calc",
-                    (F.col("amount") - F.col("avg_amount_7d_calc")) /
-                    (F.stddev("amount").over(w_7d) + F.lit(1e-6))) \
+                    F.coalesce(
+                        (F.col("amount") - F.col("avg_amount_7d_calc")) /
+                        (F.stddev("amount").over(w_7d) + F.lit(1e-6)),
+                        F.lit(0.0))) \
         .withColumn("risk_score",
                     F.when(
                         (F.col("velocity_1h_calc") > 5) &
