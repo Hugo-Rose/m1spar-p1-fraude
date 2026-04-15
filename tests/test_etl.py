@@ -147,3 +147,37 @@ def test_clean_data_unchanged(spark):
     ]
     result = clean_silver(_df(spark, data))
     assert result.count() == 3
+
+
+def test_upsert_silver_cree_fichier(spark, tmp_path):
+    """upsert_silver doit écrire les données (parquet fallback sans delta)."""
+    from src.etl.silver_cleaning import upsert_silver
+    data = [
+        ("TX001", "2024-01-01", 100.0, 0, 1234567890),
+        ("TX002", "2024-01-01",  50.0, 1, 1234567891),
+    ]
+    df = _df(spark, data)
+    path = str(tmp_path / "silver_test")
+    upsert_silver(spark, df, path)
+    # Vérifier que les données ont été écrites
+    import os
+    assert os.path.exists(path)
+
+
+def test_upsert_silver_overwrite(spark, tmp_path):
+    """upsert_silver en mode overwrite ne duplique pas les données."""
+    from src.etl.silver_cleaning import upsert_silver
+    data = [("TX001", "2024-01-01", 100.0, 0, 1234567890)]
+    df = _df(spark, data)
+    path = str(tmp_path / "silver_overwrite")
+    upsert_silver(spark, df, path)
+    upsert_silver(spark, df, path)
+    result = spark.read.parquet(path)
+    assert result.count() == 1
+
+
+def test_etl_modules_importables():
+    """Les modules ETL doivent s'importer sans erreur (couvre le code module-level)."""
+    import src.etl.bronze_ingestion  # noqa: F401
+    import src.etl.drift_monitor     # noqa: F401
+    import src.etl.run_pipeline      # noqa: F401

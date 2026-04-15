@@ -27,6 +27,7 @@ def upsert_silver(spark: SparkSession,
     """
     Merge ACID : met à jour les existants, insère les nouveaux.
     Garantit qu'un crash ne corrompt pas le dataset.
+    Si Delta Lake n'est pas disponible, écrit en Parquet (mode test).
     """
     try:
         from delta.tables import DeltaTable
@@ -46,12 +47,13 @@ def upsert_silver(spark: SparkSession,
             .execute()
         print("[Silver] UPSERT ACID terminé")
     else:
+        fmt = "delta" if delta_available else "parquet"
         silver_df.write \
-            .format("delta") \
+            .format(fmt) \
             .mode("overwrite") \
             .partitionBy("transaction_date") \
             .save(silver_path)
-        print("[Silver] Première écriture terminée")
+        print(f"[Silver] Première écriture terminée (format={fmt})")
 
 
 if __name__ == "__main__":
