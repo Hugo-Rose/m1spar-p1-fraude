@@ -165,7 +165,7 @@ async def dashboard():
       <canvas id="donut" height="180"></canvas>
     </div>
     <div class="chart-box">
-      <h2>Taux de fraude (dernières 20 req.)</h2>
+      <h2>Probabilité fraude — 20 dernières transactions</h2>
       <canvas id="line" height="180"></canvas>
     </div>
   </div>
@@ -192,15 +192,31 @@ const donut = new Chart(donutCtx, {
 });
 
 const lineCtx = document.getElementById('line').getContext('2d');
-const lineData = { labels: [], datasets: [{ label:'Taux fraude %', data:[], borderColor:'#f87171', backgroundColor:'rgba(248,113,113,0.1)', fill:true, tension:0.4 }] };
 const lineChart = new Chart(lineCtx, {
-  type: 'line',
-  data: lineData,
-  options: { scales: { x:{ ticks:{color:'#94a3b8'}, grid:{color:'#334155'} }, y:{ ticks:{color:'#94a3b8'}, grid:{color:'#334155'}, min:0, max:100 } }, plugins:{ legend:{ labels:{color:'#e2e8f0'} } } }
+  type: 'bar',
+  data: { labels: [], datasets: [{
+    label: 'Proba fraude %',
+    data: [],
+    backgroundColor: [],
+    borderRadius: 4,
+    borderWidth: 0,
+  }]},
+  options: {
+    scales: {
+      x: { ticks:{ color:'#94a3b8', maxRotation:45, font:{size:9} }, grid:{ color:'#334155' } },
+      y: { ticks:{ color:'#94a3b8', callback: v => v+'%' }, grid:{ color:'#334155' }, min:0, max:100,
+           title:{ display:true, text:'Probabilité (%)', color:'#94a3b8', font:{size:10} } }
+    },
+    plugins:{
+      legend:{ display:false },
+      tooltip:{ callbacks:{ label: ctx => {
+        const tx = ctx.raw;
+        return ` ${tx.toFixed(1)}%`;
+      }}}
+    },
+    animation:{ duration: 300 }
+  }
 });
-
-let prevTotal = 0;
-const fraudWindow = [];
 
 async function refresh() {
   try {
@@ -215,14 +231,16 @@ async function refresh() {
     donut.data.datasets[0].data = [d.legit_count, d.fraud_count];
     donut.update();
 
-    if (d.total_predictions !== prevTotal) {
-      prevTotal = d.total_predictions;
-      fraudWindow.push(d.fraud_rate_pct);
-      if (fraudWindow.length > 20) fraudWindow.shift();
-      lineData.labels = fraudWindow.map((_,i) => i+1);
-      lineData.datasets[0].data = [...fraudWindow];
-      lineChart.update();
-    }
+    const recent20 = d.recent.slice(-20);
+    lineChart.data.labels = recent20.map(tx => {
+      const id = tx.transaction_id || '';
+      return id.length > 10 ? id.slice(-8) : id;
+    });
+    lineChart.data.datasets[0].data = recent20.map(tx => +(tx.fraud_probability * 100).toFixed(1));
+    lineChart.data.datasets[0].backgroundColor = recent20.map(tx =>
+      tx.is_fraud ? 'rgba(248,113,113,0.85)' : 'rgba(74,222,128,0.7)'
+    );
+    lineChart.update();
 
     const tbody = document.getElementById('tbody');
     tbody.innerHTML = d.recent.slice().reverse().map(tx => `

@@ -138,11 +138,55 @@ for name, clf in models_config:
     with mlflow.start_run(run_name=name):
         clf.fit(X_train, y_train)
         y_proba = clf.predict_proba(X_test)[:, 1]
+        y_pred  = clf.predict(X_test)
         auc     = roc_auc_score(y_test, y_proba)
-        f1      = f1_score(y_test, clf.predict(X_test))
-        mlflow.log_param("model",    name)
-        mlflow.log_metric("auc_roc", round(auc, 4))
-        mlflow.log_metric("f1",      round(f1,  4))
+        f1      = f1_score(y_test, y_pred)
+        prec    = precision_score(y_test, y_pred)
+        rec     = recall_score(y_test, y_pred)
+
+        # Paramètres du modèle
+        mlflow.log_param("model_type",       name)
+        mlflow.log_param("train_size",        len(X_train))
+        mlflow.log_param("test_size",         len(X_test))
+        mlflow.log_param("n_features",        len(available))
+        mlflow.log_param("features",          ", ".join(available))
+        mlflow.log_param("fraud_rate",        round(sample_pd["is_fraud"].mean(), 3))
+        mlflow.log_param("scale_pos_weight",  round(spw, 2))
+        mlflow.log_param("sample_fraction",   "20%")
+        mlflow.log_param("dataset_rows",      len(sample_pd))
+
+        # Paramètres spécifiques au modèle
+        if name == "XGBoost":
+            mlflow.log_params({
+                "xgb_max_depth":        4,
+                "xgb_n_estimators":     100,
+                "xgb_learning_rate":    0.1,
+                "xgb_subsample":        0.8,
+                "xgb_colsample_bytree": 0.8,
+                "xgb_reg_alpha":        0.1,
+            })
+        elif name == "RF":
+            mlflow.log_params({
+                "rf_n_estimators":    100,
+                "rf_max_depth":       6,
+                "rf_min_samples_leaf": 5,
+                "rf_max_features":    "sqrt",
+            })
+        elif name == "LR":
+            mlflow.log_params({
+                "lr_C":        0.1,
+                "lr_max_iter": 300,
+                "lr_solver":   "lbfgs",
+            })
+
+        # Métriques
+        mlflow.log_metrics({
+            "auc_roc":   round(auc,  4),
+            "f1":        round(f1,   4),
+            "precision": round(prec, 4),
+            "recall":    round(rec,  4),
+        })
+
         mlflow.sklearn.log_model(clf, "model")
         print(f"      {name:<10s} AUC={auc:.4f}  F1={f1:.4f}")
         if auc > best_auc:
