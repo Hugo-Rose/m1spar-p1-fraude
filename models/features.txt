@@ -1,9 +1,7 @@
 V14
 V17
 velocity_1h_calc
-night_tx_ratio
 zscore_amount_calc
-risk_score
 amount
 V4
 V11

@@ -9,6 +9,7 @@ Pipeline ML P1 Fraude — M1SPAR J3
 """
 import os
 import sys
+sys.stdout.reconfigure(encoding='utf-8')
 
 # ── Fix Windows ────────────────────────────────────────────────
 os.environ["PYSPARK_PYTHON"]        = sys.executable
@@ -35,6 +36,9 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import mlflow
 import mlflow.sklearn
+
+_db_path = os.path.join(_root, "mlflow.db")
+mlflow.set_tracking_uri(f"sqlite:///{_db_path}")
 import xgboost as xgb
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.linear_model import LogisticRegression
@@ -57,8 +61,7 @@ MODELS_DIR   = os.path.join(_root, "models")
 
 TOP_FEATURES = [
     "V14", "V17", "velocity_1h_calc",
-    "night_tx_ratio", "zscore_amount_calc",
-    "risk_score", "amount", "V4", "V11", "V12",
+    "zscore_amount_calc", "amount", "V4", "V11", "V12",
 ]
 
 # ── [1/6] Chargement Gold → Pandas ────────────────────────────
@@ -112,16 +115,20 @@ print(f"      scale_pos_weight : {spw:.2f}")
 
 models_config = [
     ("XGBoost", xgb.XGBClassifier(
-        n_estimators=200, max_depth=6, learning_rate=0.1,
+        n_estimators=100, max_depth=4, learning_rate=0.1,
         scale_pos_weight=spw, eval_metric="aucpr",
+        subsample=0.8, colsample_bytree=0.8,
+        reg_alpha=0.1, reg_lambda=1.0,
         random_state=42, n_jobs=-1)),
     ("RF", RandomForestClassifier(
-        n_estimators=100, max_depth=8, class_weight="balanced",
+        n_estimators=100, max_depth=6, class_weight="balanced",
+        max_features="sqrt", min_samples_leaf=5,
         random_state=42, n_jobs=-1)),
     ("LR", Pipeline([
         ("scaler", StandardScaler()),
         ("clf",    LogisticRegression(
-            class_weight="balanced", max_iter=200, random_state=42)),
+            class_weight="balanced", max_iter=300,
+            C=0.1, random_state=42)),
     ])),
 ]
 
