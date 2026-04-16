@@ -12,3 +12,15 @@ htmlcov/
 .coverage
 *.log
 checkpoint/
+tmp_*/
+tmp_anova.py
+tmp_locust.bat
+tmp_predict.json
+tmp_test_api.py
+tmp_spark/
+winutils/
+fraud_dataset/
+mlflow.db
+tp_j*.md
+tmp_*.py
+tmp_*.bat

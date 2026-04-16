@@ -1,0 +1,8 @@
+V14
+V17
+velocity_1h_calc
+zscore_amount_calc
+amount
+V4
+V11
+V12
